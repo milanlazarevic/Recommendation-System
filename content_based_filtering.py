@@ -86,6 +86,8 @@ class ContentBasedFilter:
         similarity_scores = list(enumerate(self.similarity_matrix[idx]))
         similarity_scores = sorted(similarity_scores, key=lambda x : x[1], reverse=True)
         
+        if result_size is None:
+            result_size = len(similarity_scores)
         # the provided movie is always first
         best_indices = [s[0] for s in similarity_scores[1:result_size+1]]
         result = self.movies.iloc[best_indices].copy()
@@ -101,10 +103,20 @@ class ContentBasedFilter:
         similarity_scores = list(enumerate(self.movies['title'].apply(lambda x : self.user_similarity(user_id, x))))
         similarity_scores = sorted(similarity_scores, key=lambda x : x[1], reverse=True)
         
+        if result_size is None:
+            result_size = len(similarity_scores)
         best_indices = [s[0] for s in similarity_scores[:result_size]]
         result = self.movies.iloc[best_indices].copy()
 
         # set score column on result
         result.insert(0, "score", [s[1] for s in similarity_scores[:result_size]])
+        result = self.__convert_to_user_ratings(result, user_id)
         return result
     
+
+    # adds user ratings to the given dataframe (converts score column to user_rating column)
+    def __convert_to_user_ratings(self, df: pd.DataFrame, user_id: int) -> pd.DataFrame:
+        min_score = df['score'].min()
+        max_score = df['score'].max()
+        df['rate'] = df['score'].apply(lambda x : (x - min_score) / (max_score - min_score) * 5)
+        return df

@@ -19,7 +19,7 @@ class CollaborativeFilter:
     def get_svd_model_ub(self) -> None:
         reader = Reader()
         # convert pandas dataframe to surprise dataset
-        data = Dataset.load_from_df(self.user_ratings, reader)
+        data = Dataset.load_from_df(self.user_ratings[["userId", "movieId", "rating"]], reader)
 
         svd = SVD()
         # Perform train-test split
