@@ -11,6 +11,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 class CollaborativeFilter:
     def __init__(self, movies: pd.DataFrame, user_ratings: pd.DataFrame) -> None:
+        # rename id column to movieId to match the other dataset
+        movies = movies.rename(columns={"id": "movieId"})
         self.movies = movies.copy()
         self.user_ratings = user_ratings.copy()
         self.svd_ub = None
@@ -19,7 +21,9 @@ class CollaborativeFilter:
     def get_svd_model_ub(self) -> None:
         reader = Reader()
         # convert pandas dataframe to surprise dataset
-        data = Dataset.load_from_df(self.user_ratings[["userId", "movieId", "rating"]], reader)
+        data = Dataset.load_from_df(
+            self.user_ratings[["userId", "movieId", "rating"]], reader
+        )
 
         svd = SVD()
         # Perform train-test split
@@ -85,17 +89,21 @@ class CollaborativeFilter:
     def get_recommendation_for_movie(
         self, movie_name: str, result_size: int = 20
     ) -> pd.DataFrame:
-        movie_id = self.__get_movie_id(movie_name, df_movies)
+        movie_id = self.__get_movie_id(movie_name)
         if movie_id is None:
             print("Movie doesnt exist")
             return None
         model = self.svd_ib
-        rate = df_movies.apply(
+        rate = self.movies.apply(
             lambda movie: model.predict(movie_id, movie["movieId"])[3], axis=1
         )
-        df_movies.insert(0, "rate", rate)
-        df_movies = df_movies.sort_values(by="rate", ascending=False)
-        return df_movies[0:result_size]
+        # copy movies dataframe to not change the original one
+        movies = self.movies.copy()
+        movies.insert(0, "score", rate)
+        movies = movies.sort_values(by="score", ascending=False)
+        # rename movieId to id to match the other dataset
+        movies = movies.rename(columns={"movieId": "id"})
+        return movies[0:result_size]
 
     def get_recommendation_for_user(
         self, user_id: str, result_size: int = 20
@@ -109,7 +117,9 @@ class CollaborativeFilter:
         rate = movies.apply(
             lambda movie: model.predict(user_id, movie["movieId"])[3], axis=1
         )
-        movies.insert(0, "rate", rate)
+        movies.insert(0, "score", rate)
         # print(movies.head(5))
-        movies = movies.sort_values(by="rate", ascending=False)
+        movies = movies.sort_values(by="score", ascending=False)
+        # rename movieId to id to match the other dataset
+        movies = movies.rename(columns={"movieId": "id"})
         return movies[0:result_size]
