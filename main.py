@@ -1,17 +1,13 @@
 from file_parser import parse_csv
-from demographic_filtering import demographic_filtering
-from collaborative_filtering import (
-    CF_get_top_movies_for_user,
-    get_user_item_matrix,
-    CF_get_top_movies_for_movie,
-)
+from demographic_filtering import DemographicFilter
+from collaborative_filtering import CollaborativeFilter
 
 
 TMDB_MOVIES = "./data/movies.csv"
 TMDB_CREDITS = "./data/credits.csv"
 RATINGS_SMALL = "./data/ratings.csv"
 # number of first n movies filters will return
-RESULT_SIZE = 20
+RESULT_SIZE = 5
 
 
 def main():
@@ -36,7 +32,10 @@ def main():
     df_movies = parse_csv(TMDB_MOVIES, attributes)
 
     df_movies = df_movies.merge(df_credits, on="id")
-    # # DEMOGRAPHIC FILTERING
+    # DEMOGRAPHIC FILTERING
+    recommendations = DemographicFilter(df_movies).get_recommendation(RESULT_SIZE)
+    print(recommendations[["rate", "title", "vote_count", "vote_average"]])
+
     # results = demographic_filtering(df_movies, RESULT_SIZE)
 
     # print(results[["rate", "title", "vote_count", "vote_average"]])
@@ -55,7 +54,10 @@ def main():
     # results = CF_get_top_movies_for_user(1, df_ratings, df_movies, RESULT_SIZE)
     # print(results[["rate", "title", "vote_count", "vote_average"]])
     # GET RECOMMENDATIONS W COLLABORATIVE FILTERING FOR MOVIE NAME
-    results = CF_get_top_movies_for_movie("Batman", df_ratings, df_movies, 10)
+    cf = CollaborativeFilter(df_movies, df_ratings)
+    cf.get_svd_model_ub()
+    results = cf.get_recommendation_for_user(1, RESULT_SIZE)
+    print(results[["rate", "title", "vote_count", "vote_average"]])
 
 
 if __name__ == "__main__":
