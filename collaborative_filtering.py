@@ -4,6 +4,10 @@ import pandas as pd
 import numpy as np
 from numpy.linalg import svd
 
+from itertools import chain
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
 
 class CollaborativeFilter:
     def __init__(self, movies: pd.DataFrame, user_ratings: pd.DataFrame) -> None:

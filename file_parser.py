@@ -6,7 +6,7 @@ from typing import List
 
 MOVIES_FILE = 'data/movies.csv'
 CREDITS_FILE = 'data/credits.csv'
-RATINGS_FILE = 'data/ratings.csv'
+RATINGS_FILE = 'data/ratings2.csv'
 MOVIE_ATTRS = [
         "id",
         "title",

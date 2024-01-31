@@ -51,13 +51,16 @@ class ContentBasedFilter:
 
     # sets the movie similarity matrix as a linear combination of description and count similarity matrices
     def calculate_scores(self) -> pd.DataFrame:
-        self.similarity_matrix = 0.5 * self.description_similarity() + 0.5 * self.count_similarity()
+        # self.similarity_matrix = 0.5 * self.description_similarity() + 0.5 * self.count_similarity()
+        self.similarity_matrix = self.description_similarity() * self.count_similarity()
         return self.similarity_matrix
 
     def __user_movie_similarity(self, idx: int, x) -> float:
         if x['title'] not in self.indices:
             return 0
         if idx > len(self.similarity_matrix) - 1:
+            return 0
+        if self.indices[x['title']] > len(self.similarity_matrix) - 1:
             return 0
         return x['rating'] * self.similarity_matrix[idx][self.indices[x['title']]]
 
@@ -97,7 +100,6 @@ class ContentBasedFilter:
     def get_recommendation_for_user(self, user_id: str, result_size: int = 20) -> pd.DataFrame:
         similarity_scores = list(enumerate(self.movies['title'].apply(lambda x : self.user_similarity(user_id, x))))
         similarity_scores = sorted(similarity_scores, key=lambda x : x[1], reverse=True)
-        print(similarity_scores)
         
         best_indices = [s[0] for s in similarity_scores[:result_size]]
         result = self.movies.iloc[best_indices].copy()
