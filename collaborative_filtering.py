@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 from numpy.linalg import svd
 
+from sklearn.neighbors import NearestNeighbors
+
 from itertools import chain
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -17,6 +19,11 @@ class CollaborativeFilter:
         self.user_ratings = user_ratings.copy()
         self.svd_ub = None
         self.svd_ib = None
+        self.knn_model = None
+        self.user_item_matrix = None
+        self.indices = pd.Series(
+            movies.index, index=movies["title"]
+        ).drop_duplicates()  # map movie title to index
 
     def get_svd_model_ub(self) -> None:
         reader = Reader()
@@ -62,7 +69,7 @@ class CollaborativeFilter:
         user_item_matrix = self.user_ratings.pivot(
             index=["userId"], columns=["movieId"], values=["rating"]
         ).fillna(0)
-        return user_item_matrix
+        self.user_item_matrix = user_item_matrix
 
     # Resize movie dataset to get most popular movies to apply collaborativve filtering on them
     def __resize_movie_dataset(self, movie_df: pd.DataFrame, procentage: float = 0.7):
@@ -70,18 +77,27 @@ class CollaborativeFilter:
         movie_df = movie_df.loc[movie_df["vote_count"] >= m]
         return movie_df
 
+    def __get_idx_from_title(self, title: str):
+        idx = self.indices[title]
+        return idx
+
     def __get_movie_id(self, movie_name: str):
-        movie = self.movies.loc[self.movies["title"] == movie_name]
+        print(self.movies.columns)
+        print(self.movies["title"].unique())
+        movie = self.movies[self.movies["title"] == movie_name]
+        # movie = self.movies.index[self.movies["title"] == movie_name]
         # if we have more than one movie with the same name but they are different
         # i will just send the first because later we will send id with each movie!
         if len(movie) > 1:
+            # returns the first movie id
             print(movie.iloc[0]["movieId"])
             return movie.iloc[0]["movieId"]
 
         elif movie.empty:
             return None
         try:
-            movie_id = int(movie["movieId"])
+            print(movie.iloc[0]["movieId"])
+            movie_id = int(movie.iloc[0]["movieId"])
             return movie_id
         except ValueError:
             return None
@@ -123,3 +139,56 @@ class CollaborativeFilter:
         # rename movieId to id to match the other dataset
         movies = movies.rename(columns={"movieId": "id"})
         return movies[0:result_size]
+
+    def get_knn_model(self, result_size: int = 10):
+        knn = NearestNeighbors(
+            metric="cosine", algorithm="brute", n_neighbors=result_size, n_jobs=-1
+        )
+        knn.fit(self.user_item_matrix.transpose())
+        self.knn_model = knn
+
+    def get_recommendation_for_movie_knn(self, movie_name: str, result_size: int = 10):
+        movie_id = self.__get_movie_id(movie_name)
+        # movie_id = self.indices[movie_name]
+        if movie_id is None:
+            print("Movie doesnt exist")
+            return None
+        model = self.knn_model
+        # print(self.user_item_matrix.columns)
+        if ("rating", movie_id) not in self.user_item_matrix.columns:
+            print("Movie doesnt exist")
+            return None
+        movie = self.user_item_matrix[("rating", movie_id)]
+        # print(movie)
+        # print(self.user_item_matrix.shape)
+        distances, indices = model.kneighbors(
+            self.user_item_matrix[("rating", movie_id)].values.reshape(1, -1),
+            n_neighbors=30,
+        )
+        # print(distances)
+        # print(indices)
+
+        # find the movies with the same id as the indices
+        idx_dist_pairs = zip(indices[0], distances[0])
+        idx_dist_dict = {}
+        for pair in idx_dist_pairs:
+            idx_dist_dict[pair[0]] = pair[1]
+        result = self.movies[self.movies["movieId"].isin(indices[0])]
+        result["score"] = result["movieId"].apply(lambda x: idx_dist_dict[x])
+        result = result.sort_values(by="score", ascending=False)
+        return result
+
+
+# cf = CollaborativeFilter(df, user_ratings)
+#     cf.get_user_item_matrix()
+#     cf.get_knn_model()
+#     df = df.dropna()
+#     print(df.head())
+#     print(cf.user_item_matrix)
+#     results = cf.get_recommendation_for_movie_knn("American Pie", 10)
+#     if results is not None:
+#         print(
+#             results[
+#                 ["movieId", "title", "vote_average", "vote_count", "genres", "score"]
+#             ]
+#         )
