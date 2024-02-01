@@ -10,7 +10,8 @@ def main():
     hybrid_filter.fit()
     results = hybrid_filter.get_recommendation_for_movie("The Dark Knight Rises", 10)
     print(results["title_x"])
-
+    results = hybrid_filter.get_recommendation_for_user(5, 10)
+    print(results["title_x"])
 
 if __name__ == "__main__":
     main()
